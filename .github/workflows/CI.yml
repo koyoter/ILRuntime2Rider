@@ -20,11 +20,37 @@ jobs:
         with:
           path: |
             build/gradle-jvm
+            C:\Users\runneradmin\AppData\Local\gradle-jvm
             ~/.nuget/packages
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-Build-${{ hashFiles('gradlew.bat', 'src/dotnet/*/*.csproj', 'src/dotnet/*.props', 'gradle-wrapper.properties') }}
-      - run: ./gradlew :buildPlugin --no-daemon
+      - name: Cache Rider IDE zip
+        uses: actions/cache@v4
+        with:
+          path: rider-ide/JetBrains.Rider-2024.3.8.win.zip
+          key: rider-ide-zip-2024.3.8
+      - name: Download Rider IDE
+        shell: pwsh
+        # Gradle must resolve the IntelliJ Platform dependency during configuration;
+        # downloading the ~3 GB IDE there is fragile on CI. Download it up front
+        # (resumable curl with retries) and point Gradle at the extracted instance
+        # via -PLocalRiderHome. Keep the version in sync with ProductVersion in gradle.properties.
+        run: |
+          $ver = "2024.3.8"
+          $root = "rider-ide/$ver"
+          $zip = "rider-ide/JetBrains.Rider-$ver.win.zip"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          if (-not (Test-Path $zip)) {
+            curl.exe -fL --retry 5 --retry-delay 10 -o $zip "https://download.jetbrains.com/rider/JetBrains.Rider-$ver.win.zip"
+          }
+          tar -xf $zip -C $root
+          if (-not (Test-Path "$root/product-info.json")) {
+            $inner = Get-ChildItem $root -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'product-info.json') } | Select-Object -First 1
+            if (-not $inner) { throw "product-info.json not found after extracting Rider $ver" }
+            Get-ChildItem $inner.FullName | Move-Item -Destination $root -Force
+          }
+      - run: ./gradlew :buildPlugin --no-daemon -PLocalRiderHome=${{ github.workspace }}/rider-ide/2024.3.8
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -74,10 +100,29 @@ jobs:
         with:
           path: |
             build/gradle-jvm
+            C:\Users\runneradmin\AppData\Local\gradle-jvm
             ~/.nuget/packages
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-Release-${{ matrix.rider.product }}-${{ hashFiles('gradlew.bat', 'src/dotnet/*/*.csproj', 'src/dotnet/*.props', 'gradle-wrapper.properties') }}
+      - name: Download Rider IDE
+        shell: pwsh
+        # See the same step in the Build job: pre-provision the IDE so Gradle
+        # never has to download the ~3 GB platform during configuration.
+        # 6 x ~3 GB per tag exceeds the shared GitHub Actions cache budget, so
+        # release jobs download fresh each time; tags are rare.
+        run: |
+          $ver = "${{ matrix.rider.product }}"
+          $root = "rider-ide/$ver"
+          $zip = "rider-ide/JetBrains.Rider-$ver.win.zip"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          curl.exe -fL --retry 5 --retry-delay 10 -o $zip "https://download.jetbrains.com/rider/JetBrains.Rider-$ver.win.zip"
+          tar -xf $zip -C $root
+          if (-not (Test-Path "$root/product-info.json")) {
+            $inner = Get-ChildItem $root -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'product-info.json') } | Select-Object -First 1
+            if (-not $inner) { throw "product-info.json not found after extracting Rider $ver" }
+            Get-ChildItem $inner.FullName | Move-Item -Destination $root -Force
+          }
       - name: Derive plugin version from tag
         # Tag is the single source of truth (e.g. v0.1.0 -> 0.1.0); overrides gradle.properties.
         shell: pwsh
@@ -85,7 +130,7 @@ jobs:
           $version = "${{ github.ref_name }}" -replace '^v', ''
           "PLUGIN_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Build plugin
-        run: ./gradlew :buildPlugin --no-daemon -PPluginVersion=${{ env.PLUGIN_VERSION }} -PProductVersion=${{ matrix.rider.product }} -PDotnetSdkVersion=${{ matrix.rider.sdk }} -PRiderSinceBuild=${{ matrix.rider.since }} -PRiderUntilBuild=${{ matrix.rider.until }}
+        run: ./gradlew :buildPlugin --no-daemon -PPluginVersion=${{ env.PLUGIN_VERSION }} -PLocalRiderHome=${{ github.workspace }}/rider-ide/${{ matrix.rider.product }} -PProductVersion=${{ matrix.rider.product }} -PDotnetSdkVersion=${{ matrix.rider.sdk }} -PRiderSinceBuild=${{ matrix.rider.since }} -PRiderUntilBuild=${{ matrix.rider.until }}
       - name: Rename artifacts with Rider version
         # All matrix entries produce identical file names; suffix them so
         # artifact merge + release upload don't overwrite each other.

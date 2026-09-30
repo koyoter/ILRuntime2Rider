@@ -55,9 +55,17 @@ sourceSets {
 
 dependencies {
     intellijPlatform {
-        // useInstaller = false: the Rider installer-based flow is not supported
-        // by the plugin for Rider targets; use the zip distribution.
-        rider("${ProductVersion}", false)
+        def localRiderHome = providers.gradleProperty('LocalRiderHome')
+        if (localRiderHome.isPresent()) {
+            // Pre-provisioned IDE (CI downloads and extracts it before running Gradle):
+            // resolves instantly at configuration time, no network involved.
+            local(new File(localRiderHome.get()))
+        } else {
+            // useInstaller = false: the Rider installer-based flow is not supported
+            // by the plugin for Rider targets; use the zip distribution.
+            // NOTE: this resolves/downloads the whole IDE (~3 GB) during configuration.
+            rider("${ProductVersion}", false)
+        }
     }
 }
 
