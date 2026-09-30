@@ -71,12 +71,17 @@ public class ILRuntimeBreakpointManager :
         throw new NotSupportedException();
     }
 
+#if !RS_262_OR_LATER
+    // This (catchpoint, moduleInfo) overload was removed in 2026.2 in favour of the
+    // (catchpoint, type, moduleInfo) shape below; catchpoints are not supported by the
+    // ILRuntime protocol either way.
     protected override InsertionResult<ModuleMirror>[] InsertCatchpoint(
         Catchpoint catchpoint,
         IModuleInfo<ModuleMirror> moduleInfo)
     {
         throw new NotSupportedException();
     }
+#endif
 
     protected override InsertionResult<ModuleMirror>[] InsertCatchpoint(
         Catchpoint catchpoint,

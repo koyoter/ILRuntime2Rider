@@ -28,23 +28,38 @@ public class ILRuntimeStepper :
     protected override void DoStepInto(ILRuntimeStepContext stepContext)
     {
         session.Resume();
-        session.DebuggedProcess.SendStep((int)stepContext.GetThreadId(), StepTypes.Into);
+        session.DebuggedProcess.SendStep((int)GetThreadId(stepContext), StepTypes.Into);
     }
 
     protected override void DoStepOver(ILRuntimeStepContext stepContext)
     {
         session.Resume();
-        session.DebuggedProcess.SendStep((int)stepContext.GetThreadId(), StepTypes.Over);
+        session.DebuggedProcess.SendStep((int)GetThreadId(stepContext), StepTypes.Over);
     }
 
     protected override void DoStepOut(ILRuntimeStepContext stepContext)
     {
         session.Resume();
-        session.DebuggedProcess.SendStep((int)stepContext.GetThreadId(), StepTypes.Out);
+        session.DebuggedProcess.SendStep((int)GetThreadId(stepContext), StepTypes.Out);
     }
 
     protected override void TryLeaveIgnoredFrame(ILRuntimeStepContext stepContext)
     {
-        session.DebuggedProcess.SendStep((int)stepContext.GetThreadId(), StepTypes.Into);
+        session.DebuggedProcess.SendStep((int)GetThreadId(stepContext), StepTypes.Into);
     }
+
+    private static long GetThreadId(ILRuntimeStepContext stepContext)
+    {
+#if RS_261_OR_LATER
+        return stepContext.ThreadId;
+#else
+        return stepContext.GetThreadId();
+#endif
+    }
+
+#if RS_261_OR_LATER
+    // The ILRuntime protocol exposes no IL sequence points, so stepping-state
+    // comparisons in the base class stay inert.
+    protected override SequencePointState GetSequencePointState(ILRuntimeThread thread, bool isInto, ILRuntimeStepContext stepContext) => null;
+#endif
 }

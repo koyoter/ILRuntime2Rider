@@ -70,7 +70,7 @@ public abstract class ILRuntimeExpressionEvaluator : IExpressionEvaluator<ILRunt
         var result = Evaluate(frame, expression, parts);
         var lastName = parts.Last();
         if (result != null && result.Name != lastName && result.IsNull)
-            throw new EvaluatorException($"This {result.Name} is Null", Array.Empty<object>());
+            throw new EvaluatorException($"This {result.Name} is Null");
         if (result == null)
         {
             throw new EvaluatorException(

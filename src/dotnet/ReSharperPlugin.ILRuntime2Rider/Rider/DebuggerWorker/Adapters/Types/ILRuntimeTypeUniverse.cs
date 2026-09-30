@@ -37,7 +37,7 @@ public class ILRuntimeTypeUniverse : TypeUniverseBase<ILRuntimeProperty>
     public override IMetadataTypeLite GetTypeByFullName(IStackFrame frame, string fullName)
     {
         return ((ILRuntimeProperty)frame.GetILRuntimeFrame().GetPropertyByName(fullName) ??
-                throw new EvaluatorException("Evaluator Fail", fullName)).ToLite();
+                throw new EvaluatorException("Evaluator Fail")).ToLite();
     }
 
     public override IReifiedType GetReifiedType(ulong appDomain, IMetadataTypeLite metadataType)

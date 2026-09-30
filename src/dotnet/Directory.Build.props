@@ -20,6 +20,18 @@
 
   <PropertyGroup>
     <WaveVersion>$(SdkVersion.Substring(2,2))$(SdkVersion.Substring(5,1)).0.0</WaveVersion>
+    <!-- Wave-major, e.g. 243 / 251 / 262. All supported values are 3 digits, so the
+         string comparisons below order correctly. -->
+    <WaveMajor>$(SdkVersion.Substring(2,2))$(SdkVersion.Substring(5,1))</WaveMajor>
+    <!-- Source-level switches for SDK API drift: gate new/removed members with these
+         instead of the bare RS_243-style constants so a new Rider line only needs a
+         new OR_LATER line here. -->
+    <DefineConstants>$(DefineConstants);RS_$(WaveMajor)</DefineConstants>
+    <DefineConstants Condition="'$(WaveMajor)' >= '251'">$(DefineConstants);RS_251_OR_LATER</DefineConstants>
+    <DefineConstants Condition="'$(WaveMajor)' >= '252'">$(DefineConstants);RS_252_OR_LATER</DefineConstants>
+    <DefineConstants Condition="'$(WaveMajor)' >= '253'">$(DefineConstants);RS_253_OR_LATER</DefineConstants>
+    <DefineConstants Condition="'$(WaveMajor)' >= '261'">$(DefineConstants);RS_261_OR_LATER</DefineConstants>
+    <DefineConstants Condition="'$(WaveMajor)' >= '262'">$(DefineConstants);RS_262_OR_LATER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

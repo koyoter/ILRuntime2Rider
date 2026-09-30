@@ -12,6 +12,9 @@ using Mono.Debugging.Autofac;
 using Mono.Debugging.Client;
 using Mono.Debugging.Client.Events;
 using Mono.Debugging.Debugee;
+#if RS_252_OR_LATER
+using Mono.Debugging.Symbols;
+#endif
 using ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.Adapters.Breakpoints;
 using ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.Adapters.Metadata;
 using ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.Adapters.Modules;
@@ -59,6 +62,16 @@ public class ILRuntimeDebuggerSession(
     /// ISmartStepIntoProvider and its NRE kills the worker's queued task pump.
     /// </summary>
     protected override void DoCancelStatefulOperations() => Stepper.OnDebuggerBreak();
+
+#if RS_251_OR_LATER
+    /// <summary>
+    /// Toggles the base class's optional stepper logging; the ILRuntime protocol has no
+    /// step bookkeeping to log, so this stays a no-op.
+    /// </summary>
+    public override void SetStepLoggingEnabled(bool value)
+    {
+    }
+#endif
 
     protected override void OnAttachToProcess(ProcessInfo processInfo)
     {
@@ -135,7 +148,15 @@ public class ILRuntimeDebuggerSession(
 
     protected override IManagedSymbolReaderFactory CreateSymbolReaderFactory()
     {
+#if RS_252_OR_LATER
+        // 2025.2 moved PDB discovery into an injected searcher; the default finder covers
+        // the PDB next to the assembly, embedded PDBs and PE-referenced paths.
+        return new ManagedPdbSymbolReaderFactory(
+            new PdbSearcher(new[] { new DefaultPdbPossibleLocationsFinder() }),
+            PathResolutionManager, FileExistenceCache);
+#else
         return new ManagedPdbSymbolReaderFactory(PathResolutionManager, FileExistenceCache);
+#endif
     }
 
     protected override DebugeeRuntime CalculateDebugeeRuntime()

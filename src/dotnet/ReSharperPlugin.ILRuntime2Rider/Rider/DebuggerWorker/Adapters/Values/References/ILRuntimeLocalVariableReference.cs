@@ -16,7 +16,11 @@ public class ILRuntimeLocalVariableReference :
     IValueReference,
     IDebuggerHierarchyObject
 {
+#if RS_252_OR_LATER
+    private readonly FetchedCachedValue<ILRuntimeProperty> cachedValue;
+#else
     private readonly RollbackIfFailCachedValue<ILRuntimeProperty, IValueFetchOptions> cachedValue;
+#endif
     private readonly IStackFrame<ILRuntimeStackFrame> frame;
     private readonly ILRuntimeProperty propertyValue;
     private readonly IValueRoleFactory<ILRuntimeProperty> roleFactory;
@@ -29,7 +33,11 @@ public class ILRuntimeLocalVariableReference :
         this.frame = frame;
         this.propertyValue = propertyValue;
         this.roleFactory = roleFactory;
+#if RS_252_OR_LATER
+        cachedValue = new FetchedCachedValue<ILRuntimeProperty>(GetValueNoCache, property => true);
+#else
         cachedValue = this.CreateRollbackIfFailCacheValue(property => true);
+#endif
     }
 
     public IDebuggerHierarchyObject Parent => frame;

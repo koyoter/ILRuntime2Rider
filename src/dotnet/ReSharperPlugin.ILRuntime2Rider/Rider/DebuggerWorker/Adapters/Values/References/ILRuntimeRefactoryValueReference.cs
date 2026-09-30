@@ -16,7 +16,11 @@ namespace ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.Adapters.Values.R
 /// </summary>
 public class ILRuntimeRefactoryValueReference : ICachedValueReference<ILRuntimeProperty>, IExpressionValueReference
 {
+#if RS_252_OR_LATER
+    private readonly FetchedCachedValue<ILRuntimeProperty> cachedValue;
+#else
     private readonly RollbackIfFailCachedValue<ILRuntimeProperty, IValueFetchOptions> cachedValue;
+#endif
     private readonly ILRuntimeExpressionEvaluator expressionEvaluator;
     private readonly IValueRoleFactory<ILRuntimeProperty> roleFactory;
 
@@ -28,7 +32,11 @@ public class ILRuntimeRefactoryValueReference : ICachedValueReference<ILRuntimeP
     {
         this.roleFactory = roleFactory;
         this.expressionEvaluator = expressionEvaluator;
+#if RS_252_OR_LATER
+        cachedValue = new FetchedCachedValue<ILRuntimeProperty>(GetValueNoCache, roleFactory.IsValid);
+#else
         cachedValue = this.CreateRollbackIfFailCacheValue(roleFactory.IsValid);
+#endif
         Expression = expression;
         OriginatingFrame = originatingFrame;
     }

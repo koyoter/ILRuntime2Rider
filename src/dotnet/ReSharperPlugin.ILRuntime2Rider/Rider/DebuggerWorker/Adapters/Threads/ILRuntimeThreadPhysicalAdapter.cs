@@ -39,13 +39,26 @@ public class ILRuntimeThreadPhysicalAdapter :
 
     public IValueReference GetActiveExceptionReference()
     {
+#if RS_262_OR_LATER
+        return !HasActiveException
+            ? null
+            : (IValueReference)new ActiveExceptionValueReference<ILRuntimeProperty>(thread, typeUniverse,
+                roleFactory, false);
+#else
         return !HasActiveException
             ? null
             : (IValueReference)new ActiveExceptionValueReference<ILRuntimeProperty>(thread, typeUniverse,
                 roleFactory);
+#endif
     }
 
     public bool HasActiveException => GetActiveException() != null;
+
+#if RS_262_OR_LATER
+    // The ILRuntime VM is not CLR managed code; consumers treat false/null as
+    // "stay conservative", which matches every other unexercised hook here.
+    public bool? IsStoppedInManagedCode() => false;
+#endif
 
     public IReadOnlyList<ILRuntimeStackFrame> EnumerateFrames()
     {

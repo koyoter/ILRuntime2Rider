@@ -44,6 +44,26 @@ public class ILRuntimeStackFramePropertiesProvider : IStackFramePropertiesProvid
             ? session.PathResolutionManager.ToManagedSymbolUrl(
                 stackFrameInfo.DocumentName.TryGetSymbolUrl(Guid.Empty))
             : null;
+#if RS_262_OR_LATER
+        // The four name strings collapsed into StackFrameIdentity + presentations in 2026.2.
+        return new StackFrameProperties(
+            StackFrameOrigin.UserCode,
+            new SourceLocation(stackFrameInfo.MethodName, managedSymbolUrl,
+                runtimeFrame.StartLine, runtimeFrame.StartColumn, runtimeFrame.EndLine, runtimeFrame.EndColumn),
+            0L, runtimeFrame.GetLanguage(), false, false, false, false, false, runtimeFrame.HasDebugInfo(),
+            new StackFrameIdentity(string.Empty, string.Empty, stackFrameInfo.MethodName, string.Empty),
+            MethodSignaturePresentations.Empty,
+            StackFrameKind.ILFrame, false, 0U);
+#elif RS_252_OR_LATER
+        // 2025.2 inserted the isCompletedAsync flag after isAsync.
+        return new StackFrameProperties(
+            StackFrameOrigin.UserCode,
+            new SourceLocation(stackFrameInfo.MethodName, managedSymbolUrl,
+                runtimeFrame.StartLine, runtimeFrame.StartColumn, runtimeFrame.EndLine, runtimeFrame.EndColumn),
+            0L, runtimeFrame.GetLanguage(), false, false, false, false, false, runtimeFrame.HasDebugInfo(),
+            string.Empty, stackFrameInfo.MethodName, string.Empty, string.Empty,
+            StackFrameKind.ILFrame, false, 0U);
+#else
         return new StackFrameProperties(
             StackFrameOrigin.UserCode,
             new SourceLocation(stackFrameInfo.MethodName, managedSymbolUrl,
@@ -51,6 +71,7 @@ public class ILRuntimeStackFramePropertiesProvider : IStackFramePropertiesProvid
             0L, runtimeFrame.GetLanguage(), false, false, false, false, runtimeFrame.HasDebugInfo(),
             string.Empty, stackFrameInfo.MethodName, string.Empty, string.Empty,
             StackFrameKind.ILFrame, false, 0U);
+#endif
     }
 
     public PositionSpan? GetFrameRange(
