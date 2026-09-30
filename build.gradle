@@ -4,9 +4,9 @@ import org.apache.tools.ant.taskdefs.condition.Os
 
 plugins {
     id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '2.2.0'
+    id 'org.jetbrains.kotlin.jvm' version '2.3.20'
     id 'org.jetbrains.intellij.platform' version '2.5.0'
-    id 'com.jetbrains.rdgen' version '2024.1.1'      // See https://github.com/JetBrains/rd/releases
+    id 'com.jetbrains.rdgen' version '2026.2.5'      // See https://github.com/JetBrains/rd/releases
 }
 
 ext {
@@ -147,17 +147,20 @@ tasks {
     }
 }
 
+// Regenerates the protocol model code (ILRuntimeDebuggerWorkerModel.Generated.kt is
+// checked in, so this is a manual tool step — the CI build never runs it).
+// rdgen 2026.x no longer compiles the model itself: compile :protocol first and put
+// its output plus the IDE's rd jars on the classpath.
+def rdLibDir = rdLibDirectory()
+def kotlinStdlibJar = buildscript.configurations.classpath.files.find { it.name.startsWith("kotlin-stdlib") }
 rdgen {
-    def modelDir = new File(rootDir, "protocol/src/main/kotlin/model")
     def csOutput = new File(rootDir, "src/dotnet/${DotnetPluginId}/Rider")
     def ktOutput = new File(rootDir, "src/rider/main/kotlin/${RiderPluginId.replace('.','/').toLowerCase()}")
 
     verbose = true
-    classpath {
-        "${rdLibDirectory()}/rider-model.jar"
-    }
-    sources "${modelDir}/debuggerWorker"
-    hashFolder = "${buildDir}"
+    classpath new File(rootDir, "protocol/build/classes/kotlin/main")
+    classpath file("${rdLibDir}/rider-model.jar"), "${rdLibDir}/rd-framework.jar", "${rdLibDir}/rd-core.jar"
+    classpath kotlinStdlibJar
     packages = "model.debuggerWorker"
 
     generator {
@@ -173,6 +176,10 @@ rdgen {
         root = "com.jetbrains.rider.model.nova.debugger.main.DebuggerRoot"
         directory = "$csOutput/Model/DebuggerWorker"
     }
+}
+
+tasks.named("rdgen") {
+    dependsOn ":protocol:compileKotlin"
 }
 
 tasks.named("buildPlugin") {
