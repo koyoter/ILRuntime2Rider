@@ -10,6 +10,8 @@ on:
 jobs:
   Build:
     # Smoke build on branch pushes / PRs; release artifacts come from the Release matrix below.
+    # Display name makes the "skipped" entry in tag-triggered runs self-explanatory.
+    name: Smoke build (PR and branch pushes only)
     if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/')
     runs-on: windows-latest
     steps:
