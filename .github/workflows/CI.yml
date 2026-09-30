@@ -77,8 +77,14 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-Release-${{ matrix.rider.product }}-${{ hashFiles('gradlew.bat', 'src/dotnet/*/*.csproj', 'src/dotnet/*.props', 'gradle-wrapper.properties') }}
+      - name: Derive plugin version from tag
+        # Tag is the single source of truth (e.g. v0.1.0 -> 0.1.0); overrides gradle.properties.
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          "PLUGIN_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Build plugin
-        run: ./gradlew :buildPlugin --no-daemon -PProductVersion=${{ matrix.rider.product }} -PDotnetSdkVersion=${{ matrix.rider.sdk }} -PRiderSinceBuild=${{ matrix.rider.since }} -PRiderUntilBuild=${{ matrix.rider.until }}
+        run: ./gradlew :buildPlugin --no-daemon -PPluginVersion=${{ env.PLUGIN_VERSION }} -PProductVersion=${{ matrix.rider.product }} -PDotnetSdkVersion=${{ matrix.rider.sdk }} -PRiderSinceBuild=${{ matrix.rider.since }} -PRiderUntilBuild=${{ matrix.rider.until }}
       - name: Rename artifacts with Rider version
         # All matrix entries produce identical file names; suffix them so
         # artifact merge + release upload don't overwrite each other.
