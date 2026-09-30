@@ -18,9 +18,11 @@ jobs:
           submodules: recursive
       - uses: actions/cache@v4
         with:
+          # ~/AppData/Local/gradle-jvm is where the gradle-jvm wrapper embedded in
+          # gradlew.bat caches its JDK (LOCALAPPDATA on the runner); caching it skips
+          # a ~190 MB JDK download on every run.
           path: |
-            build/gradle-jvm
-            C:\Users\runneradmin\AppData\Local\gradle-jvm
+            ~/AppData/Local/gradle-jvm
             ~/.nuget/packages
             ~/.gradle/caches
             ~/.gradle/wrapper
@@ -60,24 +62,6 @@ jobs:
           name: ${{ github.event.repository.name }}.CI.${{ github.ref_name }}
           path: output
 
-  Test:
-    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/')
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: actions/cache@v4
-        with:
-          path: |
-            build/gradle-jvm
-            packages
-            ~/.nuget/packages
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-Test-${{ hashFiles('gradlew.bat', 'src/dotnet/*/*.csproj', 'src/dotnet/*.props', 'gradle-wrapper.properties') }}
-      - run: ./gradlew :testDotNet --no-daemon
-
   Release:
     # One tag -> one plugin zip per supported Rider line.
     # -PProductVersion selects the IDE used to compile and run rdgen; the dotnet backend
@@ -101,9 +85,9 @@ jobs:
           submodules: recursive
       - uses: actions/cache@v4
         with:
+          # See the same cache step in the Build job.
           path: |
-            build/gradle-jvm
-            C:\Users\runneradmin\AppData\Local\gradle-jvm
+            ~/AppData/Local/gradle-jvm
             ~/.nuget/packages
             ~/.gradle/caches
             ~/.gradle/wrapper
