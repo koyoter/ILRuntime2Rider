@@ -1,0 +1,21 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- See https://www.nuget.org/packages/JetBrains.ReSharper.SDK -->
+    <!-- IDE/VS restore fallback only: Gradle overrides it per build via /p:SdkVersion (DotnetSdkVersion in gradle.properties). -->
+    <!-- Must stay an exact patch version: Directory.Build.props slices it to derive WaveVersion. -->
+    <SdkVersion>2024.3.8</SdkVersion>
+
+    <Title>ILRuntime2Rider</Title>
+    <Description>Description</Description>
+
+    <Authors>Author</Authors>
+    <Copyright>Copyright $([System.DateTime]::Now.Year) Maintainers of ILRuntime2Rider</Copyright>
+    <PackageTags>resharper plugin</PackageTags>
+
+    <PackageProjectUrl></PackageProjectUrl>
+    <PackageLicenseUrl></PackageLicenseUrl>
+    <PackageIconUrl></PackageIconUrl>
+  </PropertyGroup>
+
+</Project>

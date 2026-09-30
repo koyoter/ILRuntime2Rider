@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  Build:
+    # Smoke build on branch pushes / PRs; release artifacts come from the Release matrix below.
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/cache@v4
+        with:
+          path: |
+            build/gradle-jvm
+            ~/.nuget/packages
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-Build-${{ hashFiles('gradlew.bat', 'src/dotnet/*/*.csproj', 'src/dotnet/*.props', 'gradle-wrapper.properties') }}
+      - run: ./gradlew :buildPlugin --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ github.event.repository.name }}.CI.${{ github.ref_name }}
+          path: output
+
+  Test:
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/cache@v4
+        with:
+          path: |
+            build/gradle-jvm
+            packages
+            ~/.nuget/packages
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-Test-${{ hashFiles('gradlew.bat', 'src/dotnet/*/*.csproj', 'src/dotnet/*.props', 'gradle-wrapper.properties') }}
+      - run: ./gradlew :testDotNet --no-daemon
+
+  Release:
+    # One tag -> one plugin zip per supported Rider line.
+    # -PProductVersion selects the IDE used to compile and run rdgen; the dotnet backend
+    # compiles against -PDotnetSdkVersion (exact patch: WaveVersion is derived from it).
+    # Since/until are pinned per entry so each zip targets exactly its own Rider line.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rider:
+          - { product: '2024.3.8', sdk: '2024.3.8', since: '243', until: '243.*' }
+          - { product: '2025.1',   sdk: '2025.1.0', since: '251', until: '251.*' }
+          - { product: '2025.2',   sdk: '2025.2.0', since: '252', until: '252.*' }
+          - { product: '2025.3',   sdk: '2025.3.0', since: '253', until: '253.*' }
+          - { product: '2026.1',   sdk: '2026.1.0', since: '261', until: '261.*' }
+          - { product: '2026.2',   sdk: '2026.2.0', since: '262', until: '262.*' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/cache@v4
+        with:
+          path: |
+            build/gradle-jvm
+            ~/.nuget/packages
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-Release-${{ matrix.rider.product }}-${{ hashFiles('gradlew.bat', 'src/dotnet/*/*.csproj', 'src/dotnet/*.props', 'gradle-wrapper.properties') }}
+      - name: Build plugin
+        run: ./gradlew :buildPlugin --no-daemon -PProductVersion=${{ matrix.rider.product }} -PDotnetSdkVersion=${{ matrix.rider.sdk }} -PRiderSinceBuild=${{ matrix.rider.since }} -PRiderUntilBuild=${{ matrix.rider.until }}
+      - name: Rename artifacts with Rider version
+        # All matrix entries produce identical file names; suffix them so
+        # artifact merge + release upload don't overwrite each other.
+        shell: pwsh
+        run: |
+          Get-ChildItem output -File | ForEach-Object {
+            if ($_.Name -match '\.zip$') {
+              Rename-Item $_.FullName -NewName ($_.Name -replace '\.zip$', "-${{ matrix.rider.product }}.zip")
+            }
+            elseif ($_.Name -match '\.nupkg$') {
+              Rename-Item $_.FullName -NewName ($_.Name -replace '\.nupkg$', "-${{ matrix.rider.product }}.nupkg")
+            }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ github.event.repository.name }}.Release.${{ matrix.rider.product }}
+          path: output
+
+  GitHubRelease:
+    needs: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ github.event.repository.name }}.Release.*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true

@@ -1,0 +1,23 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.kotlin.jvm'
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
+    implementation name: "rd-gen"
+    implementation name: "rider-model"
+}
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs rdLibDirectory().absolutePath
+    }
+}
