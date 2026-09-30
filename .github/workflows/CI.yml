@@ -50,7 +50,10 @@ jobs:
             if (-not $inner) { throw "product-info.json not found after extracting Rider $ver" }
             Get-ChildItem $inner.FullName | Move-Item -Destination $root -Force
           }
-      - run: ./gradlew :buildPlugin --no-daemon -PLocalRiderHome=${{ github.workspace }}/rider-ide/2024.3.8
+      # Quote every -P arg: when pwsh invokes gradlew.bat it splits an unquoted value at
+      # the first '.' (-PFoo=2024.3.8 arrives as "-PFoo=2024" ".3.8"), which Gradle then
+      # mistakes for a task name.
+      - run: ./gradlew :buildPlugin --no-daemon "-PLocalRiderHome=${{ github.workspace }}/rider-ide/2024.3.8"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -130,7 +133,8 @@ jobs:
           $version = "${{ github.ref_name }}" -replace '^v', ''
           "PLUGIN_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Build plugin
-        run: ./gradlew :buildPlugin --no-daemon -PPluginVersion=${{ env.PLUGIN_VERSION }} -PLocalRiderHome=${{ github.workspace }}/rider-ide/${{ matrix.rider.product }} -PProductVersion=${{ matrix.rider.product }} -PDotnetSdkVersion=${{ matrix.rider.sdk }} -PRiderSinceBuild=${{ matrix.rider.since }} -PRiderUntilBuild=${{ matrix.rider.until }}
+        # Same pwsh/gradlew.bat '.'-splitting hazard as in the Build job; quote every -P arg.
+        run: ./gradlew :buildPlugin --no-daemon "-PPluginVersion=${{ env.PLUGIN_VERSION }}" "-PLocalRiderHome=${{ github.workspace }}/rider-ide/${{ matrix.rider.product }}" "-PProductVersion=${{ matrix.rider.product }}" "-PDotnetSdkVersion=${{ matrix.rider.sdk }}" "-PRiderSinceBuild=${{ matrix.rider.since }}" "-PRiderUntilBuild=${{ matrix.rider.until }}"
       - name: Rename artifacts with Rider version
         # All matrix entries produce identical file names; suffix them so
         # artifact merge + release upload don't overwrite each other.
