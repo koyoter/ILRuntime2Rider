@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    # Main 分支提交不触发构建；发布仅由 tag 驱动
+    branches-ignore: ['main']
     tags: ['v*']
   pull_request:
 
