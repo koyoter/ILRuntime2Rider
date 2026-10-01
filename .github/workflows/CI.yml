@@ -64,7 +64,7 @@ jobs:
           - { product: '2025.2',   sdk: '2025.2.0', since: '252', until: '252.*' }
           - { product: '2025.3',   sdk: '2025.3.0', since: '253', until: '253.*' }
           - { product: '2026.1',   sdk: '2026.1.0', since: '261', until: '261.*' }
-          - { product: '2026.2',   sdk: '2026.2.0', since: '262', until: '262.*' }
+          - { product: '2026.2',   sdk: '2026.2.3', since: '262', until: '262.*' }
     steps:
       - uses: actions/checkout@v4
         with:
