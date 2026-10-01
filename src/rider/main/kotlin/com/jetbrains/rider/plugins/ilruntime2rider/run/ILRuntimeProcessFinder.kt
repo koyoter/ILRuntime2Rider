@@ -11,6 +11,8 @@ import java.io.ByteArrayInputStream
 import java.io.DataInputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.SocketTimeoutException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Listens for UDP broadcasts from ILRuntime hosts and accumulates the discovered
@@ -31,6 +33,12 @@ object ILRuntimeProcessFinder {
     val onError: IProperty<String> = Property("")
     val onProcessChanged: IProperty<ILRuntimeProcess?> = Property(null)
 
+    private val lastSeen = ConcurrentHashMap<ILRuntimeProcess, Long>()
+
+    /** The process this plugin instance is currently attached to; exempt from TTL expiry. */
+    @Volatile
+    var attachedProcess: ILRuntimeProcess? = null
+
     var port: Int = ILRuntimeConstants.PORT
         private set
 
@@ -43,13 +51,31 @@ object ILRuntimeProcessFinder {
         port = newPort
         try {
             processes.clear()
+            lastSeen.clear()
             socket?.close()
-            socket = DatagramSocket(newPort)
+            socket = DatagramSocket(newPort).apply { soTimeout = ILRuntimeConstants.PROCESS_REFRESH_INTERVAL_MS }
             ensureReceiveLoop()
         } catch (e: Exception) {
             onError.set(e.message ?: e.javaClass.simpleName)
         }
     }
+
+    /** Drops entries that stopped broadcasting for more than [thresholdMs], keeping [attachedProcess]. */
+    fun removeStale(thresholdMs: Long) {
+        val now = System.currentTimeMillis()
+        for ((process, seen) in lastSeen) {
+            if (now - seen <= thresholdMs) continue
+            if (process == attachedProcess && isHostAlive(process)) continue
+            if (process == attachedProcess) attachedProcess = null
+            lastSeen.remove(process)
+            processes.remove(process)
+        }
+    }
+
+    // Broadcasts stop while a debugger is attached, so the attached entry is kept while its host
+    // process lives. Only local hosts can be liveness-checked here; remote ones stay exempt.
+    private fun isHostAlive(process: ILRuntimeProcess): Boolean =
+        !ILRuntimeConstants.isLocalAddress(process.ip) || ProcessHandle.of(process.processId.toLong()).isPresent
 
     // A single long-lived receive loop: recreating it per [listen] call would race
     // concurrent receivers over the shared buffers.
@@ -57,38 +83,58 @@ object ILRuntimeProcessFinder {
         if (receiveLoopStarted) return
         receiveLoopStarted = true
         ApplicationManager.getApplication().executeOnPooledThread {
-            while (true) {
-                try {
-                    receiveOnce()
-                } catch (e: Exception) {
-                    log.warn("ILRuntime process discovery receive failed: ${e.message}")
+            try {
+                while (true) {
+                    val received = try {
+                        receiveOnce()
+                    } catch (e: SocketTimeoutException) {
+                        false
+                    } catch (e: Exception) {
+                        log.warn("ILRuntime process discovery receive failed: ${e.message}")
+                        false
+                    }
+                    try {
+                        removeStale(ILRuntimeConstants.PROCESS_TTL_MS.toLong())
+                    } catch (e: Exception) {
+                        // The sweep fires dialog refresh advises; never let one kill this thread,
+                        // receiveLoopStarted would stay true and discovery would never restart.
+                        log.warn("ILRuntime process discovery sweep failed: ${e.message}")
+                    }
+                    // Sleep only when idle: a fresh broadcast must reach the UI without delay.
+                    if (!received) {
+                        try {
+                            Thread.sleep(ILRuntimeConstants.PROCESS_REFRESH_INTERVAL_MS.toLong())
+                        } catch (e: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                            break
+                        }
+                    }
                 }
-                try {
-                    Thread.sleep(ILRuntimeConstants.PROCESS_REFRESH_INTERVAL_MS.toLong())
-                } catch (e: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                    break
-                }
+            } finally {
+                receiveLoopStarted = false
             }
         }
     }
 
-    private fun receiveOnce() {
-        val currentSocket = socket ?: return
+    /** Waits for and processes one datagram. Returns false only when idle (no socket). */
+    private fun receiveOnce(): Boolean {
+        val currentSocket = socket ?: return false
         val packet = DatagramPacket(socketBuffer, socketBuffer.size)
         currentSocket.receive(packet)
-        val ip = packet.address?.hostAddress ?: return
+        val ip = packet.address?.hostAddress ?: return true
 
         val input = DataInputStream(ByteArrayInputStream(socketBuffer))
-        val projectName = readUtf8String(input) ?: return
-        val machineName = readUtf8String(input) ?: return
+        val projectName = readUtf8String(input) ?: return true
+        val machineName = readUtf8String(input) ?: return true
         val processId = readIntLe(input)
         val debuggerPort = readIntLe(input)
 
         val process = ILRuntimeProcess(projectName, machineName, processId, debuggerPort, ip)
+        lastSeen[process] = System.currentTimeMillis()
         processes.add(process)
         onProcessChanged.set(null)
         onProcessChanged.set(process)
+        return true
     }
 
     private fun readUtf8String(input: DataInputStream): String? {

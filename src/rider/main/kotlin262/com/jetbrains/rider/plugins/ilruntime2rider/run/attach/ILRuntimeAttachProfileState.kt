@@ -35,6 +35,8 @@ class ILRuntimeAttachProfileState(
         projectLifetime: Lifetime
     ): DebuggerWorkerProcessHandler {
         val nested = projectLifetime.createNested()
+        ILRuntimeProcessFinder.attachedProcess = process
+        nested.onTermination { ILRuntimeProcessFinder.attachedProcess = null }
         val model = protocolModel.iLRuntimeDebuggerWorkerModel
         ILRuntimeProcessFinder.onProcessChanged.advise(nested) { discovered ->
             if (discovered != null) {

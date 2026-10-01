@@ -37,13 +37,15 @@ public class ILRuntimeAttachService
         }
     }
 
+    // Port is deliberately NOT compared: killing and restarting Unity yields a new
+    // debug port (56000 + PID), and the session should reattach to it. A hot-reload
+    // domain reload keeps the same process and port, so it matches either way.
     public bool IsSameProcess(Process process)
     {
         lock (_stateLock)
         {
             return _process != null
                 && _process.Host == process.Host
-                && _process.Port == process.Port
                 && _process.ProjectName == process.ProjectName;
         }
     }

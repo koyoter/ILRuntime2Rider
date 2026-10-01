@@ -13,6 +13,12 @@ object ILRuntimeConstants {
     /** Delay between process-discovery receive attempts, ms. */
     const val PROCESS_REFRESH_INTERVAL_MS = 200
 
+    /** A discovered process is dropped after this long without a UDP broadcast, ms. */
+    const val PROCESS_TTL_MS = 3000
+
+    /** Threshold for the aggressive sweep performed when the selection dialog opens, ms. */
+    const val PROCESS_STALE_ON_OPEN_MS = 1000
+
     const val DEBUGGER_NAME = "Attach To ILRuntime"
     const val DEBUGGER_DESCRIPTION = "Attach to a running ILRuntime host process"
 

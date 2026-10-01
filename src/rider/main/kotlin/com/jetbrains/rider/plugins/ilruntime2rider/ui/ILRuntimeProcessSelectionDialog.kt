@@ -4,7 +4,7 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.rd.defineNestedLifetime
 import com.intellij.openapi.ui.DialogWrapper
-import com.intellij.openapi.ui.ValidationInfo
+import com.intellij.ui.JBColor
 import com.intellij.ui.PortField
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
@@ -16,6 +16,7 @@ import com.jetbrains.rd.util.reactive.Property
 import com.jetbrains.rider.plugins.ilruntime2rider.ILRuntimeConstants
 import com.jetbrains.rider.plugins.ilruntime2rider.run.ILRuntimeProcess
 import com.jetbrains.rider.plugins.ilruntime2rider.run.ILRuntimeProcessFinder
+import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.util.Comparator
@@ -23,6 +24,7 @@ import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
+import javax.swing.table.TableCellRenderer
 
 class ILRuntimeProcessSelectionDialog(project: Project) : DialogWrapper(project) {
 
@@ -35,6 +37,8 @@ class ILRuntimeProcessSelectionDialog(project: Project) : DialogWrapper(project)
         private set
 
     init {
+        title = ILRuntimeConstants.DEBUGGER_NAME
+        ILRuntimeProcessFinder.removeStale(ILRuntimeConstants.PROCESS_STALE_ON_OPEN_MS.toLong())
         val dialogLifetime = disposable.defineNestedLifetime()
         tableModel = createTableModel()
 
@@ -102,14 +106,6 @@ class ILRuntimeProcessSelectionDialog(project: Project) : DialogWrapper(project)
         return topPanel
     }
 
-    override fun doValidate(): ValidationInfo? {
-        if ((processTable?.selectedRow ?: -1) < 0) {
-            val okButton = getButton(okAction)
-            return ValidationInfo("Please select a process to attach.", okButton ?: processTable)
-        }
-        return super.doValidate()
-    }
-
     override fun doOKAction() {
         val row = processTable?.selectedRow ?: -1
         if (row >= 0) {
@@ -119,9 +115,24 @@ class ILRuntimeProcessSelectionDialog(project: Project) : DialogWrapper(project)
     }
 
     override fun createCenterPanel(): JComponent {
-        val table = JBTable(tableModel)
+        val table = object : JBTable(tableModel) {
+            override fun prepareRenderer(renderer: TableCellRenderer, row: Int, column: Int): Component {
+                val component = super.prepareRenderer(renderer, row, column)
+                if (!isRowSelected(row)) {
+                    val item = tableModel.getItem(convertRowIndexToModel(row))
+                    component.foreground =
+                        if (item == ILRuntimeProcessFinder.attachedProcess) JBColor.GREEN else this.foreground
+                }
+                return component
+            }
+        }
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         table.emptyText.text = "No ILRuntime processes discovered"
+        // OK stays disabled until a process is selected.
+        okAction.isEnabled = false
+        table.selectionModel.addListSelectionListener {
+            okAction.isEnabled = table.selectedRow >= 0
+        }
         processTable = table
         val scrollPane = JBScrollPane(table)
         scrollPane.preferredSize = Dimension(600, 300)
