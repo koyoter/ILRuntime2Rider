@@ -82,7 +82,7 @@ public class ILRuntimeDebuggerSession(
     {
         SmartStepIntoProvider = new Adapters.Evaluation.ILRuntimeSmartStepIntoProvider();
         LogEx.Info(Logger, "ILRuntime debugger session started");
-        OnDebuggerOutput(false, "[ILRuntime2Rider] worker build 2026-09-30-1, attach-failure containment\n");
+        OnDebuggerOutput(false, "[ILRuntime2Rider] worker build 2026-09-30-2, race-free attach socket\n");
 
         var service = ILRuntimeAttachService.Instance;
         service.OnMessage += RaiseTargetNotificationSent;

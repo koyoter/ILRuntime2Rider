@@ -76,12 +76,14 @@ public class ILRuntimeAttachService
         }
         catch (Exception ex)
         {
-            // DebugSocket throws synchronously on a fast-failing connect: its onConnected
-            // callback dereferences _socket before Connect assigns it (a .NET-only race;
-            // on Unity's Mono the callback never fires inline). Without this catch the
-            // exception escapes into session startup and the worker exits gracefully,
-            // which the frontend reports as "terminated before the session was initialized".
-            lock (_stateLock) _state = State.None;
+            // Defense in depth: the bundled DebugSocket is race-free, but any leftover
+            // construction failure must not escape into session startup (the worker would
+            // exit gracefully and the frontend would report the session as terminated).
+            lock (_stateLock)
+            {
+                _state = State.None;
+                _process = null; // stop Signal-driven auto reconnect after a failed attach
+            }
             OnMessage?.Invoke($"ILRuntime attach failed: {hostInfo} ({ex.Message})",
                 NotificationType.Error, NotificationSubject.ConnectionError);
             OnConnectResult?.Invoke(false, null);
@@ -90,7 +92,11 @@ public class ILRuntimeAttachService
 
         if (!debuggedProcess.Connected)
         {
-            lock (_stateLock) _state = State.None;
+            lock (_stateLock)
+            {
+                _state = State.None;
+                _process = null;
+            }
             OnMessage?.Invoke($"ILRuntime attach failed: {hostInfo}", NotificationType.Error,
                 NotificationSubject.ConnectionError);
             OnConnectResult?.Invoke(false, null);
@@ -99,7 +105,15 @@ public class ILRuntimeAttachService
 
         if (!debuggedProcess.CheckDebugServerVersion())
         {
-            lock (_stateLock) _state = State.None;
+            // The ILRuntime server accepts a single connection; leaving this one open
+            // would block every later attach (30s attach-reply timeouts) until Unity
+            // restarts. Close so the slot frees immediately.
+            debuggedProcess.Close();
+            lock (_stateLock)
+            {
+                _state = State.None;
+                _process = null;
+            }
             OnMessage?.Invoke($"ILRuntime attach failed: {hostInfo}", NotificationType.Error,
                 NotificationSubject.ConnectionError);
             OnConnectResult?.Invoke(false, null);
