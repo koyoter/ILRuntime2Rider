@@ -94,7 +94,8 @@ jobs:
           "PLUGIN_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Build plugin
         # Same pwsh/gradlew.bat '.'-splitting hazard as in the Build job; quote every -P arg.
-        run: ./gradlew :buildPlugin --no-daemon "-PPluginVersion=${{ env.PLUGIN_VERSION }}" "-PLocalRiderHome=${{ github.workspace }}/rider-ide/${{ matrix.rider.product }}" "-PProductVersion=${{ matrix.rider.product }}" "-PDotnetSdkVersion=${{ matrix.rider.sdk }}" "-PRiderSinceBuild=${{ matrix.rider.since }}" "-PRiderUntilBuild=${{ matrix.rider.until }}"
+        # Release artifacts compile the dotnet backend in Release; the smoke Build job stays Debug.
+        run: ./gradlew :buildPlugin --no-daemon "-PPluginVersion=${{ env.PLUGIN_VERSION }}" "-PLocalRiderHome=${{ github.workspace }}/rider-ide/${{ matrix.rider.product }}" "-PProductVersion=${{ matrix.rider.product }}" "-PDotnetSdkVersion=${{ matrix.rider.sdk }}" "-PRiderSinceBuild=${{ matrix.rider.since }}" "-PRiderUntilBuild=${{ matrix.rider.until }}" "-PBuildConfiguration=Release"
       - name: Rename artifacts with Rider version
         # All matrix entries produce identical file names; suffix them so
         # artifact merge + release upload don't overwrite each other.
