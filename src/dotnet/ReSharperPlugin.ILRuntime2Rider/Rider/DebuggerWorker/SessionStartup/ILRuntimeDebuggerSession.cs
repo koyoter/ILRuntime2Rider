@@ -11,8 +11,11 @@ using JetBrains.Util.Logging;
 using Mono.Debugging.Autofac;
 using Mono.Debugging.Client;
 using Mono.Debugging.Client.Events;
-using Mono.Debugging.Debugee;
 #if RS_252_OR_LATER
+using Mono.Debugging.Client.MixedMode;
+#endif
+using Mono.Debugging.Debugee;
+#if RS_251_OR_LATER
 using Mono.Debugging.Symbols;
 #endif
 using ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.Adapters.Breakpoints;
@@ -27,16 +30,37 @@ using ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.Worker;
 namespace ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.SessionStartup;
 
 [DebuggerSessionComponent(typeof(ILRuntimeDebuggerType))]
-public class ILRuntimeDebuggerSession(
-    Lifetime lifetime,
-    ILogger logger,
-    IExpressionRangeProvider expressionRangeProvider,
-    ISourceHashCheckerProvider hashCheckerProvider,
-    ILRuntimeDebuggerWorkerHost host,
-    DebugSymbolsKind symbolsKind = 0)
-    : DebuggerSession<ILRuntimeProperty>(lifetime, logger, expressionRangeProvider, hashCheckerProvider, symbolsKind)
+public class ILRuntimeDebuggerSession : DebuggerSession<ILRuntimeProperty>
 {
+    public ILRuntimeDebuggerSession(
+        Lifetime lifetime,
+        ILogger logger,
+        IExpressionRangeProvider expressionRangeProvider,
+        ISourceHashCheckerProvider hashCheckerProvider,
+        ILRuntimeDebuggerWorkerHost host,
+        DebugSymbolsKind symbolsKind = 0)
+        : base(lifetime, logger, expressionRangeProvider, hashCheckerProvider, symbolsKind)
+    {
+        myHost = host;
+#if RS_252_OR_LATER
+        // RiderDebuggerSessionFrontend.InitializeMixedMode (present in the 2025.2+ patch
+        // streams, confirmed on 2025.3.5 / 2026.1.x / 2026.2.x runtimes) reads
+        // IsMixedMode => MixedModeHostProvider.GetHost() while the session frontend is built;
+        // the base class leaves the provider unset and the ILRuntime protocol has no native
+        // debugging, so an always-null provider yields IsMixedMode == false instead of an NRE.
+        MixedModeHostProvider = new NullMixedModeHostProvider();
+#endif
+    }
+
+#if RS_252_OR_LATER
+    private sealed class NullMixedModeHostProvider : IMixedModeHostProvider
+    {
+        public IMixedModeHost GetHost() => null;
+    }
+#endif
     private ILRuntimeThread CurrentThread => ThreadsManager.ActiveThread.Thread;
+
+    private readonly ILRuntimeDebuggerWorkerHost myHost;
 
     public ILRuntimeThreadsManager ThreadsManager => (ILRuntimeThreadsManager)base.ThreadsManager;
 
@@ -98,7 +122,7 @@ public class ILRuntimeDebuggerSession(
         };
 
         var reconnectLifetime = Lifetime.CreateNested().Lifetime;
-        host.Model.Signal.Advise(reconnectLifetime, process =>
+        myHost.Model.Signal.Advise(reconnectLifetime, process =>
         {
             if (process != null && service.IsNone && service.IsSameProcess(process))
             {
@@ -148,9 +172,12 @@ public class ILRuntimeDebuggerSession(
 
     protected override IManagedSymbolReaderFactory CreateSymbolReaderFactory()
     {
-#if RS_252_OR_LATER
+#if RS_251_OR_LATER
         // 2025.2 moved PDB discovery into an injected searcher; the default finder covers
-        // the PDB next to the assembly, embedded PDBs and PE-referenced paths.
+        // the PDB next to the assembly, embedded PDBs and PE-referenced paths. The same
+        // change was backported to the 2025.1.9 patch stream, which REMOVED the legacy
+        // two-arg constructor, so the 2025.1 zip compiles against SDK 2025.1.9 and uses
+        // the searcher-based constructor too (see the CI matrix sdk entry).
         return new ManagedPdbSymbolReaderFactory(
             new PdbSearcher(new[] { new DefaultPdbPossibleLocationsFinder() }),
             PathResolutionManager, FileExistenceCache);

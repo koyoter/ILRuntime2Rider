@@ -60,7 +60,7 @@ jobs:
       matrix:
         rider:
           - { product: '2024.3',   sdk: '2024.3.0', since: '243', until: '243.*' }
-          - { product: '2025.1',   sdk: '2025.1.0', since: '251', until: '251.*' }
+          - { product: '2025.1',   sdk: '2025.1.9', since: '251', until: '251.*' }
           - { product: '2025.2',   sdk: '2025.2.0', since: '252', until: '252.*' }
           - { product: '2025.3',   sdk: '2025.3.0', since: '253', until: '253.*' }
           - { product: '2026.1',   sdk: '2026.1.0', since: '261', until: '261.*' }
