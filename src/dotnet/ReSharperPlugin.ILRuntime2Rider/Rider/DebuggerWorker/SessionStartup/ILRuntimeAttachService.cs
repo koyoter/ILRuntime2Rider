@@ -58,18 +58,35 @@ public class ILRuntimeAttachService
         }
 
         var hostInfo = $"{process.Host}:{process.Port}";
-        var debuggedProcess = new DebuggedProcessRider(debuggerSession, process.Host, process.Port);
-        debuggedProcess.OnDisconnected = () =>
+        DebuggedProcessRider debuggedProcess;
+        try
         {
-            lock (_stateLock) _state = State.None;
-            OnDisconnect?.Invoke();
-            OnMessage?.Invoke($"Disconnected {hostInfo}", NotificationType.Error,
-                NotificationSubject.ConnectionError);
-        };
+            debuggedProcess = new DebuggedProcessRider(debuggerSession, process.Host, process.Port);
+            debuggedProcess.OnDisconnected = () =>
+            {
+                lock (_stateLock) _state = State.None;
+                OnDisconnect?.Invoke();
+                OnMessage?.Invoke($"Disconnected {hostInfo}", NotificationType.Error,
+                    NotificationSubject.ConnectionError);
+            };
 
-        OnMessage?.Invoke($"Session connecting {hostInfo}...", NotificationType.Info,
-            NotificationSubject.Default);
-        debuggedProcess.WaitForConnect();
+            OnMessage?.Invoke($"Session connecting {hostInfo}...", NotificationType.Info,
+                NotificationSubject.Default);
+            debuggedProcess.WaitForConnect();
+        }
+        catch (Exception ex)
+        {
+            // DebugSocket throws synchronously on a fast-failing connect: its onConnected
+            // callback dereferences _socket before Connect assigns it (a .NET-only race;
+            // on Unity's Mono the callback never fires inline). Without this catch the
+            // exception escapes into session startup and the worker exits gracefully,
+            // which the frontend reports as "terminated before the session was initialized".
+            lock (_stateLock) _state = State.None;
+            OnMessage?.Invoke($"ILRuntime attach failed: {hostInfo} ({ex.Message})",
+                NotificationType.Error, NotificationSubject.ConnectionError);
+            OnConnectResult?.Invoke(false, null);
+            return;
+        }
 
         if (!debuggedProcess.Connected)
         {

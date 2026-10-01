@@ -82,7 +82,7 @@ public class ILRuntimeDebuggerSession(
     {
         SmartStepIntoProvider = new Adapters.Evaluation.ILRuntimeSmartStepIntoProvider();
         LogEx.Info(Logger, "ILRuntime debugger session started");
-        OnDebuggerOutput(false, "[ILRuntime2Rider] worker build 2026-09-29-4, step diagnostics ON\n");
+        OnDebuggerOutput(false, "[ILRuntime2Rider] worker build 2026-09-30-1, attach-failure containment\n");
 
         var service = ILRuntimeAttachService.Instance;
         service.OnMessage += RaiseTargetNotificationSent;
