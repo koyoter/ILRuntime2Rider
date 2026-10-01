@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         rider:
-          - { product: '2024.3',   sdk: '2024.3.8', since: '243', until: '243.*' }
+          - { product: '2024.3',   sdk: '2024.3.0', since: '243', until: '243.*' }
           - { product: '2025.1',   sdk: '2025.1.0', since: '251', until: '251.*' }
           - { product: '2025.2',   sdk: '2025.2.0', since: '252', until: '252.*' }
           - { product: '2025.3',   sdk: '2025.3.0', since: '253', until: '253.*' }
