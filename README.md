@@ -82,7 +82,7 @@ flowchart LR
 │   │   ├── SharedDebuggerCommon/              # ILRuntime 调试线协议客户端（DebuggedProcess、断点基类）
 │   │   ├── SharedDebuggerImpl/                # 线程/栈帧/值工厂 shim 与元数据 Lite 视图
 │   │   └── Model/DebuggerWorker/              # rdgen 生成的 C# 模型（已签入）
-│   ├── misc/                                  # 配套补丁版 ILRuntime.dll / ILRuntime.Mono.Cecil.dll（Unity 侧须使用此构建）
+│   ├── misc/                                  # 配套补丁版 ILRuntime.dll / ILRuntime.Mono.Cecil.dll
 │   └── Tests/                                 # dotnet 单元测试
 ├── .github/workflows/CI.yml                   # PR smoke 构建 + tag 驱动的多版本 Release 矩阵
 └── build.gradle                               # gradle-intellij-platform 2.x + rdgen 2026.2.5
