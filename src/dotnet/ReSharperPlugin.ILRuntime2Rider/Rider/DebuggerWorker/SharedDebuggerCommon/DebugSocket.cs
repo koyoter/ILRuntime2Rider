@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
-using ILRuntime.Runtime.Debugger.Protocol;
+using ILRuntime.Runtime.Debugger;
 
 namespace ReSharperPlugin.ILRuntime2Rider.Rider.DebuggerWorker.SharedDebuggerCommon;
 
@@ -26,7 +26,7 @@ public class DebugSocket
 
     private readonly object _syncRoot = new();
     private readonly byte[] _sendBuffer = new byte[64 * 1024];
-    private readonly MemoryStream _sendStream = new(_sendBuffer);
+    private readonly MemoryStream _sendStream;
     private readonly BinaryWriter _sendWriter;
     private byte[] _receiveAccumulator = new byte[64 * 1024];
     private int _receiveCount;
@@ -41,6 +41,7 @@ public class DebugSocket
 
     public DebugSocket()
     {
+        _sendStream = new MemoryStream(_sendBuffer);
         _sendWriter = new BinaryWriter(_sendStream);
     }
 
